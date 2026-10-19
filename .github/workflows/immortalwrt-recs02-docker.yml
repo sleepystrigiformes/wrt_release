@@ -1,0 +1,75 @@
+name: ImmortalWrt RE-CS-02 - Docker (custom)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Checkout this fork (customization tools)
+        uses: actions/checkout@v4
+
+      - name: Free disk space for OpenWrt compilation
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/hostedtoolcache \
+            /usr/local/share/powershell /usr/local/lib/node_modules || true
+          sudo docker system prune -af || true
+          df -h .
+
+      - name: Install native OpenWrt build dependencies
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            build-essential clang flex bison g++ gawk gcc-multilib gettext \
+            git libncurses-dev libssl-dev python3 python3-setuptools \
+            python3-pyelftools python3-dev rsync unzip zlib1g-dev \
+            file wget curl ca-certificates jq swig time ninja-build \
+            cmake pkg-config libelf-dev python3-yaml dos2unix subversion \
+            libfuse-dev xsltproc ecj fastjar
+
+      - name: Checkout latest ZqinKing build scripts (main)
+        run: |
+          git clone --depth 1 --branch main \
+            https://github.com/ZqinKing/wrt_release.git upstream
+          git -C upstream rev-parse HEAD
+
+      - name: Apply RE-CS-02 selective package config
+        run: python3 tools/customize_recs02.py upstream
+
+      - name: Preview selected upstream fragments
+        working-directory: upstream
+        run: bash build.sh jdcloud_ipq60xx_immwrt config_preview
+
+      - name: Compile latest ImmortalWrt with Docker
+        working-directory: upstream
+        run: |
+          set -o pipefail
+          bash build.sh jdcloud_ipq60xx_immwrt 2>&1 | tee ../build.log
+
+      - name: Validate factory BIN and checksum
+        run: python3 tools/verify_recs02.py output upstream output
+
+      - name: Upload verified image
+        uses: actions/upload-artifact@v4
+        with:
+          name: immortalwrt-jdcloud-re-cs-02-docker-factory
+          path: output/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload diagnostics (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: re-cs-02-build-diagnostics
+          path: |
+            build.log
+            upstream/imm-nss/.config
+            upstream/firmware/
+          if-no-files-found: ignore
+          retention-days: 7
