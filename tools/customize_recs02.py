@@ -32,6 +32,12 @@ EXCLUDE = (
     'luci-app-cupsd', 'cupsd', 'cups',
     'luci-app-emmc-health',
     'luci-app-wol', 'luci-app-etherwake', 'etherwake',
+    # 2026-10-19: VIKINGYFY/immortalwrt main miniupnpd 2.3.11
+    # cannot apply feeds/packages/net/miniupnpd/patches/020-descr-filter-fix.patch.
+    # Disable the unused UPnP service instead of shipping an unpatched build.
+    # This removes automatic UPnP / NAT-PMP / PCP port mapping.
+    'luci-app-upnp', 'luci-i18n-upnp-zh-cn',
+    'miniupnpd', 'miniupnpd-nftables', 'miniupnpd-iptables',
 )
 # These are intentionally built into the image, not downloaded afterwards.
 INCLUDE = (
@@ -137,6 +143,7 @@ def patch(root: Path) -> None:
     print('Patched:', device)
     print('Patched:', base)
     print('Preserved default fragments: nss,docker_deps,proxy')
+    print('UPnP disabled: miniupnpd/luci-app-upnp excluded to avoid incompatible 020-descr-filter-fix.patch')
     print('Pre-build validator installed: tools/verify_recs02.py')
     print('Upstream sources remain on main; no immutable SHA was pinned.')
 
