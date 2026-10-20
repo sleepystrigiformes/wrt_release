@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 360
     steps:
       - name: Checkout this fork (customization tools)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Free disk space for OpenWrt compilation
         run: |
@@ -55,16 +55,25 @@ jobs:
         run: python3 tools/verify_recs02.py output upstream output
 
       - name: Upload verified image
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: immortalwrt-jdcloud-re-cs-02-docker-factory
           path: output/
           if-no-files-found: error
           retention-days: 14
 
+      - name: Extract compile errors (on failure)
+        if: failure()
+        shell: bash
+        run: |
+          if [[ -s build.log ]]; then
+            echo '== Most relevant build errors =='
+            grep -E -i 'patch failed|hunk #[0-9]+ failed|ERROR: .* failed to build|No space left on device|Killed process|fatal error:|Error [12]$' build.log | tail -n 100 || true
+          fi
+
       - name: Upload diagnostics (on failure)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: re-cs-02-build-diagnostics
           path: |
